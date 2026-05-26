@@ -1,0 +1,1441 @@
+--- a/chrome/common/webui_url_constants.h
++++ b/chrome/common/webui_url_constants.h
+@@ -490,6 +490,10 @@ @@ inline constexpr char kChromeUIProfilePi
+ inline constexpr char kChromeUIProfilePickerStartupQuery[] = "startup";
+ inline constexpr char kChromeUIProfilePickerGlicQuery[] = "glic";
+ inline constexpr char kChromeUIProfilePickerUrl[] = "chrome://profile-picker/";
++inline constexpr char kHeliumGodsEyeHost[] = "godseye";
++inline constexpr char kHeliumGodsEyeURL[] = "chrome://godseye";
++inline constexpr char kHeliumRestrictedHost[] = "restricted-page";
++inline constexpr char kHeliumRestrictedURL[] = "chrome://restricted-page";
+ inline constexpr char kHeliumSetupHost[] = "setup";
+ inline constexpr char kHeliumSetupURL[] = "chrome://setup";
+ inline constexpr char kChromeUIHistorySyncOptinHost[] = "history-sync-optin";
+--- a/chrome/common/webui_url_constants.cc
++++ b/chrome/common/webui_url_constants.cc
+@@ -168,6 +168,8 @@ @@ base::span<const base::cstring_view> Chr
+       kChromeUIPrefsInternalsHost,
+       kChromeUIProfileInternalsHost,
+       content::kChromeUIQuotaInternalsHost,
++      kHeliumGodsEyeHost,
++      kHeliumRestrictedHost,
+       kHeliumSetupHost,
+ #if !BUILDFLAG(IS_ANDROID)
+       kChromeUIWebUIToolbarHost,
+--- a/chrome/browser/ui/webui/chrome_web_ui_configs.cc
++++ b/chrome/browser/ui/webui/chrome_web_ui_configs.cc
+@@ -44,6 +44,8 @@ @@
+ #include "chrome/browser/ui/webui/net_internals/net_internals_ui.h"
+ #include "chrome/browser/ui/webui/ntp_tiles_internals_ui.h"
+ #include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
++#include "chrome/browser/ui/webui/godseye/godseye_page_ui.h"
++#include "chrome/browser/ui/webui/godseye/restricted_page_ui.h"
+ #include "chrome/browser/ui/webui/onboarding/onboarding_page_ui.h"
+ #include "chrome/browser/ui/webui/policy/policy_ui.h"
+ #include "chrome/browser/ui/webui/predictors/predictors_ui.h"
+@@ -448,6 +450,8 @@ @@ void RegisterChromeWebUIConfigs() {
+   map.AddWebUIConfig(std::make_unique<DefaultBrowserModalUIConfig>());
+   map.AddWebUIConfig(std::make_unique<ManagedUserProfileNoticeUIConfig>());
+   map.AddWebUIConfig(std::make_unique<IntroUIConfig>());
++  map.AddWebUIConfig(std::make_unique<HeliumGodsEyePageConfig>());
++  map.AddWebUIConfig(std::make_unique<HeliumRestrictedPageConfig>());
+   map.AddWebUIConfig(std::make_unique<HeliumOnboardingPageConfig>());
+   map.AddWebUIConfig(std::make_unique<ProfileCustomizationUIConfig>());
+   map.AddWebUIConfig(std::make_unique<ProfilePickerUIConfig>());
+--- a/chrome/browser/ui/BUILD.gn
++++ b/chrome/browser/ui/BUILD.gn
+@@ -162,6 +162,14 @@ @@ static_library("ui") {
+     "webui/net_internals/net_internals_ui.h",
+     "webui/ntp_tiles_internals_ui.cc",
+     "webui/ntp_tiles_internals_ui.h",
++    "webui/godseye/godseye_handler.cc",
++    "webui/godseye/godseye_handler.h",
++    "webui/godseye/godseye_page_ui.cc",
++    "webui/godseye/godseye_page_ui.h",
++    "webui/godseye/restricted_handler.cc",
++    "webui/godseye/restricted_handler.h",
++    "webui/godseye/restricted_page_ui.cc",
++    "webui/godseye/restricted_page_ui.h",
+     "webui/omnibox/omnibox_page_handler.cc",
+     "webui/omnibox/omnibox_page_handler.h",
+     "webui/omnibox/omnibox_ui.cc",
+--- /dev/null
++++ b/chrome/browser/ui/webui/godseye/godseye_page_ui.h
+@@ -0,0 +1,30 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_UI_WEBUI_GODSEYE_GODSEYE_PAGE_UI_H_
++#define CHROME_BROWSER_UI_WEBUI_GODSEYE_GODSEYE_PAGE_UI_H_
++
++#include "content/public/browser/web_ui_controller.h"
++#include "content/public/browser/webui_config.h"
++#include "content/public/common/url_constants.h"
++#include "chrome/common/webui_url_constants.h"
++
++class HeliumGodsEyePageUI : public content::WebUIController {
++ public:
++  explicit HeliumGodsEyePageUI(content::WebUI* web_ui);
++  HeliumGodsEyePageUI(const HeliumGodsEyePageUI&) = delete;
++  HeliumGodsEyePageUI& operator=(const HeliumGodsEyePageUI&) = delete;
++  ~HeliumGodsEyePageUI() override;
++
++  WEB_UI_CONTROLLER_TYPE_DECL();
++};
++
++class HeliumGodsEyePageConfig : public content::DefaultWebUIConfig<HeliumGodsEyePageUI> {
++ public:
++  HeliumGodsEyePageConfig()
++      : DefaultWebUIConfig(content::kChromeUIScheme,
++                           chrome::kHeliumGodsEyeHost) {}
++};
++
++#endif  // CHROME_BROWSER_UI_WEBUI_GODSEYE_GODSEYE_PAGE_UI_H_
+--- /dev/null
++++ b/chrome/browser/ui/webui/godseye/godseye_page_ui.cc
+@@ -0,0 +1,34 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#include "chrome/browser/ui/webui/godseye/godseye_page_ui.h"
++
++#include "chrome/browser/profiles/profile.h"
++#include "chrome/browser/ui/webui/godseye/godseye_handler.h"
++#include "chrome/common/webui_url_constants.h"
++#include "content/public/browser/web_ui.h"
++#include "content/public/browser/web_ui_data_source.h"
++#include "chrome/grit/godseye_resources.h"
++#include "chrome/grit/godseye_resources_map.h"
++
++WEB_UI_CONTROLLER_TYPE_IMPL(HeliumGodsEyePageUI)
++
++HeliumGodsEyePageUI::HeliumGodsEyePageUI(content::WebUI* web_ui)
++    : content::WebUIController(web_ui) {
++  Profile* profile = Profile::FromWebUI(web_ui);
++
++  content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
++      profile, chrome::kHeliumGodsEyeHost);
++
++  source->AddResourcePaths(kGodsEyeResources);
++  source->SetDefaultResource(IDR_GODSEYE_GODSEYE_HTML);
++  source->OverrideContentSecurityPolicy(
++      network::mojom::CSPDirectiveName::ConnectSrc,
++      "connect-src https://timeapi.io 'self';");
++
++  web_ui->AddMessageHandler(
++      std::make_unique<GodsEyeHandler>(profile));
++}
++
++HeliumGodsEyePageUI::~HeliumGodsEyePageUI() = default;
+--- /dev/null
++++ b/chrome/browser/ui/webui/godseye/godseye_handler.h
+@@ -0,0 +1,53 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_UI_WEBUI_GODSEYE_GODSEYE_HANDLER_H_
++#define CHROME_BROWSER_UI_WEBUI_GODSEYE_GODSEYE_HANDLER_H_
++
++#include <memory>
++
++#include "base/memory/raw_ptr.h"
++#include "base/values.h"
++#include "content/public/browser/web_ui_message_handler.h"
++
++class Profile;
++
++namespace godseye {
++class GodsEyeConfig;
++}
++
++class GodsEyeHandler : public content::WebUIMessageHandler {
++ public:
++  explicit GodsEyeHandler(Profile* profile);
++  GodsEyeHandler(const GodsEyeHandler&) = delete;
++  GodsEyeHandler& operator=(const GodsEyeHandler&) = delete;
++  ~GodsEyeHandler() override;
++
++  void RegisterMessages() override;
++
++ private:
++  // Returns current state: {isEnabled, isLocked, blockedUrls, blockedKeywords,
++  //                          expirySeconds, secondsRemaining}
++  void HandleGetState(const base::Value::List& args);
++
++  // Activates God's Eye: args = [callbackId, expiryUtcSeconds, urls[], keywords[]]
++  void HandleActivate(const base::Value::List& args);
++
++  // Add a URL (always allowed): args = [callbackId, url]
++  void HandleAddUrl(const base::Value::List& args);
++
++  // Add a keyword (always allowed): args = [callbackId, keyword]
++  void HandleAddKeyword(const base::Value::List& args);
++
++  // Remove URL (only when unlocked): args = [callbackId, url]
++  void HandleRemoveUrl(const base::Value::List& args);
++
++  // Remove keyword (only when unlocked): args = [callbackId, keyword]
++  void HandleRemoveKeyword(const base::Value::List& args);
++
++  raw_ptr<Profile> profile_;
++  std::unique_ptr<godseye::GodsEyeConfig> config_;
++};
++
++#endif  // CHROME_BROWSER_UI_WEBUI_GODSEYE_GODSEYE_HANDLER_H_
+--- /dev/null
++++ b/chrome/browser/ui/webui/godseye/godseye_handler.cc
+@@ -0,0 +1,132 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#include "chrome/browser/ui/webui/godseye/godseye_handler.h"
++
++#include <memory>
++#include <string>
++#include <vector>
++
++#include "base/functional/bind.h"
++#include "base/values.h"
++#include "chrome/browser/godseye/godseye_config.h"
++#include "chrome/browser/profiles/profile.h"
++#include "content/public/browser/web_ui.h"
++
++GodsEyeHandler::GodsEyeHandler(Profile* profile)
++    : profile_(profile),
++      config_(std::make_unique<godseye::GodsEyeConfig>(
++          profile->GetPrefs(), profile->GetPath())) {}
++
++GodsEyeHandler::~GodsEyeHandler() = default;
++
++void GodsEyeHandler::RegisterMessages() {
++  web_ui()->RegisterMessageCallback(
++      "getGodsEyeState",
++      base::BindRepeating(&GodsEyeHandler::HandleGetState,
++                          base::Unretained(this)));
++  web_ui()->RegisterMessageCallback(
++      "activateGodsEye",
++      base::BindRepeating(&GodsEyeHandler::HandleActivate,
++                          base::Unretained(this)));
++  web_ui()->RegisterMessageCallback(
++      "godsEyeAddUrl",
++      base::BindRepeating(&GodsEyeHandler::HandleAddUrl,
++                          base::Unretained(this)));
++  web_ui()->RegisterMessageCallback(
++      "godsEyeAddKeyword",
++      base::BindRepeating(&GodsEyeHandler::HandleAddKeyword,
++                          base::Unretained(this)));
++  web_ui()->RegisterMessageCallback(
++      "godsEyeRemoveUrl",
++      base::BindRepeating(&GodsEyeHandler::HandleRemoveUrl,
++                          base::Unretained(this)));
++  web_ui()->RegisterMessageCallback(
++      "godsEyeRemoveKeyword",
++      base::BindRepeating(&GodsEyeHandler::HandleRemoveKeyword,
++                          base::Unretained(this)));
++}
++
++void GodsEyeHandler::HandleGetState(const base::Value::List& args) {
++  AllowJavascript();
++  const std::string& callback_id = args[0].GetString();
++
++  base::Value::Dict state;
++  state.Set("isEnabled", config_->IsEnabled());
++  state.Set("isLocked", config_->IsLocked());
++  state.Set("expirySeconds",
++            static_cast<double>(config_->GetExpirySeconds()));
++  state.Set("secondsRemaining",
++            static_cast<double>(config_->SecondsRemaining()));
++
++  base::Value::List url_list;
++  for (const auto& u : config_->GetBlockedUrls()) url_list.Append(u);
++  state.Set("blockedUrls", std::move(url_list));
++
++  base::Value::List kw_list;
++  for (const auto& k : config_->GetBlockedKeywords()) kw_list.Append(k);
++  state.Set("blockedKeywords", std::move(kw_list));
++
++  ResolveJavascriptCallback(base::Value(callback_id),
++                             base::Value(std::move(state)));
++}
++
++void GodsEyeHandler::HandleActivate(const base::Value::List& args) {
++  AllowJavascript();
++  // args: [callbackId, expiryUtcSeconds, urlsArray, keywordsArray]
++  if (args.size() < 4) return;
++  const std::string& callback_id = args[0].GetString();
++  int64_t expiry = static_cast<int64_t>(args[1].GetDouble());
++
++  std::vector<std::string> urls, keywords;
++  if (args[2].is_list()) {
++    for (const auto& v : args[2].GetList()) {
++      if (v.is_string()) urls.push_back(v.GetString());
++    }
++  }
++  if (args[3].is_list()) {
++    for (const auto& v : args[3].GetList()) {
++      if (v.is_string()) keywords.push_back(v.GetString());
++    }
++  }
++
++  config_->Activate(expiry, urls, keywords);
++  ResolveJavascriptCallback(base::Value(callback_id), base::Value(true));
++}
++
++void GodsEyeHandler::HandleAddUrl(const base::Value::List& args) {
++  AllowJavascript();
++  if (args.size() < 2) return;
++  const std::string& callback_id = args[0].GetString();
++  const std::string& url = args[1].GetString();
++  config_->AddUrl(url);
++  ResolveJavascriptCallback(base::Value(callback_id), base::Value(true));
++}
++
++void GodsEyeHandler::HandleAddKeyword(const base::Value::List& args) {
++  AllowJavascript();
++  if (args.size() < 2) return;
++  const std::string& callback_id = args[0].GetString();
++  const std::string& keyword = args[1].GetString();
++  config_->AddKeyword(keyword);
++  ResolveJavascriptCallback(base::Value(callback_id), base::Value(true));
++}
++
++void GodsEyeHandler::HandleRemoveUrl(const base::Value::List& args) {
++  AllowJavascript();
++  if (args.size() < 2) return;
++  const std::string& callback_id = args[0].GetString();
++  const std::string& url = args[1].GetString();
++  bool ok = config_->RemoveUrl(url);
++  ResolveJavascriptCallback(base::Value(callback_id), base::Value(ok));
++}
++
++void GodsEyeHandler::HandleRemoveKeyword(const base::Value::List& args) {
++  AllowJavascript();
++  if (args.size() < 2) return;
++  const std::string& callback_id = args[0].GetString();
++  const std::string& keyword = args[1].GetString();
++  bool ok = config_->RemoveKeyword(keyword);
++  ResolveJavascriptCallback(base::Value(callback_id), base::Value(ok));
++}
+--- /dev/null
++++ b/chrome/browser/ui/webui/godseye/restricted_page_ui.h
+@@ -0,0 +1,31 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_UI_WEBUI_GODSEYE_RESTRICTED_PAGE_UI_H_
++#define CHROME_BROWSER_UI_WEBUI_GODSEYE_RESTRICTED_PAGE_UI_H_
++
++#include "content/public/browser/web_ui_controller.h"
++#include "content/public/browser/webui_config.h"
++#include "content/public/common/url_constants.h"
++#include "chrome/common/webui_url_constants.h"
++
++class HeliumRestrictedPageUI : public content::WebUIController {
++ public:
++  explicit HeliumRestrictedPageUI(content::WebUI* web_ui);
++  HeliumRestrictedPageUI(const HeliumRestrictedPageUI&) = delete;
++  HeliumRestrictedPageUI& operator=(const HeliumRestrictedPageUI&) = delete;
++  ~HeliumRestrictedPageUI() override;
++
++  WEB_UI_CONTROLLER_TYPE_DECL();
++};
++
++class HeliumRestrictedPageConfig
++    : public content::DefaultWebUIConfig<HeliumRestrictedPageUI> {
++ public:
++  HeliumRestrictedPageConfig()
++      : DefaultWebUIConfig(content::kChromeUIScheme,
++                           chrome::kHeliumRestrictedHost) {}
++};
++
++#endif  // CHROME_BROWSER_UI_WEBUI_GODSEYE_RESTRICTED_PAGE_UI_H_
+--- /dev/null
++++ b/chrome/browser/ui/webui/godseye/restricted_page_ui.cc
+@@ -0,0 +1,31 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#include "chrome/browser/ui/webui/godseye/restricted_page_ui.h"
++
++#include "chrome/browser/profiles/profile.h"
++#include "chrome/browser/ui/webui/godseye/restricted_handler.h"
++#include "chrome/common/webui_url_constants.h"
++#include "content/public/browser/web_ui.h"
++#include "content/public/browser/web_ui_data_source.h"
++#include "chrome/grit/restricted_page_resources.h"
++#include "chrome/grit/restricted_page_resources_map.h"
++
++WEB_UI_CONTROLLER_TYPE_IMPL(HeliumRestrictedPageUI)
++
++HeliumRestrictedPageUI::HeliumRestrictedPageUI(content::WebUI* web_ui)
++    : content::WebUIController(web_ui) {
++  Profile* profile = Profile::FromWebUI(web_ui);
++
++  content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
++      profile, chrome::kHeliumRestrictedHost);
++
++  source->AddResourcePaths(kRestrictedPageResources);
++  source->SetDefaultResource(IDR_RESTRICTED_PAGE_RESTRICTED_PAGE_HTML);
++
++  web_ui->AddMessageHandler(
++      std::make_unique<RestrictedPageHandler>(profile));
++}
++
++HeliumRestrictedPageUI::~HeliumRestrictedPageUI() = default;
+--- /dev/null
++++ b/chrome/browser/ui/webui/godseye/restricted_handler.h
+@@ -0,0 +1,30 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_UI_WEBUI_GODSEYE_RESTRICTED_HANDLER_H_
++#define CHROME_BROWSER_UI_WEBUI_GODSEYE_RESTRICTED_HANDLER_H_
++
++#include "base/memory/raw_ptr.h"
++#include "base/values.h"
++#include "content/public/browser/web_ui_message_handler.h"
++
++class Profile;
++
++class RestrictedPageHandler : public content::WebUIMessageHandler {
++ public:
++  explicit RestrictedPageHandler(Profile* profile);
++  RestrictedPageHandler(const RestrictedPageHandler&) = delete;
++  RestrictedPageHandler& operator=(const RestrictedPageHandler&) = delete;
++  ~RestrictedPageHandler() override;
++
++  void RegisterMessages() override;
++
++ private:
++  // Returns: {secondsRemaining, daysRemaining}
++  void HandleGetGodsEyeInfo(const base::Value::List& args);
++
++  raw_ptr<Profile> profile_;
++};
++
++#endif  // CHROME_BROWSER_UI_WEBUI_GODSEYE_RESTRICTED_HANDLER_H_
+--- /dev/null
++++ b/chrome/browser/ui/webui/godseye/restricted_handler.cc
+@@ -0,0 +1,45 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#include "chrome/browser/ui/webui/godseye/restricted_handler.h"
++
++#include "base/functional/bind.h"
++#include "base/values.h"
++#include "chrome/browser/godseye/godseye_config.h"
++#include "chrome/browser/profiles/profile.h"
++#include "content/public/browser/web_ui.h"
++
++RestrictedPageHandler::RestrictedPageHandler(Profile* profile)
++    : profile_(profile) {}
++
++RestrictedPageHandler::~RestrictedPageHandler() = default;
++
++void RestrictedPageHandler::RegisterMessages() {
++  web_ui()->RegisterMessageCallback(
++      "getGodsEyeInfo",
++      base::BindRepeating(&RestrictedPageHandler::HandleGetGodsEyeInfo,
++                          base::Unretained(this)));
++}
++
++void RestrictedPageHandler::HandleGetGodsEyeInfo(
++    const base::Value::List& args) {
++  AllowJavascript();
++  const std::string& callback_id = args[0].GetString();
++
++  godseye::GodsEyeConfig config(profile_->GetPrefs(), profile_->GetPath());
++
++  int64_t secs = config.SecondsRemaining();
++  int64_t days = secs / 86400;
++  int64_t hours = (secs % 86400) / 3600;
++  int64_t minutes = (secs % 3600) / 60;
++
++  base::Value::Dict info;
++  info.Set("secondsRemaining", static_cast<double>(secs));
++  info.Set("daysRemaining", static_cast<double>(days));
++  info.Set("hoursRemaining", static_cast<double>(hours));
++  info.Set("minutesRemaining", static_cast<double>(minutes));
++
++  ResolveJavascriptCallback(base::Value(callback_id),
++                             base::Value(std::move(info)));
++}
+--- a/chrome/browser/resources/BUILD.gn
++++ b/chrome/browser/resources/BUILD.gn
+@@ -36,6 +36,8 @@ @@ group("resources") {
+     "//chrome/browser/resources/discards:resources",
+     "//chrome/browser/resources/downloads:resources",
+     "//chrome/browser/resources/extensions:resources",
++    "//chrome/browser/resources/godseye:resources",
++    "//chrome/browser/resources/restricted_page:resources",
+     "//chrome/browser/resources/feedback:resources",
+     "//chrome/browser/resources/history:resources",
+     "//chrome/browser/resources/identity_internals:resources",
+--- /dev/null
++++ b/chrome/browser/resources/godseye/BUILD.gn
+@@ -0,0 +1,25 @@ @@
++# Copyright 2025 The Helium Authors
++# You can use, redistribute, and/or modify this source code under
++# the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++import("//ui/webui/resources/tools/build_webui.gni")
++
++build_webui("build") {
++  grd_prefix = "godseye"
++  web_component_files = [
++    "godseye.ts",
++  ]
++  non_web_component_files = [
++    "godseye.html",
++    "godseye.css",
++  ]
++  ts_deps = [
++    "//third_party/polymer/v3_0:library",
++    "//ui/webui/resources/js:build_ts",
++    "//ui/webui/resources/cr_elements:build_ts",
++  ]
++}
++
++group("resources") {
++  public_deps = [ ":build" ]
++}
+--- /dev/null
++++ b/chrome/browser/resources/restricted_page/BUILD.gn
+@@ -0,0 +1,21 @@ @@
++# Copyright 2025 The Helium Authors
++# You can use, redistribute, and/or modify this source code under
++# the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++import("//ui/webui/resources/tools/build_webui.gni")
++
++build_webui("build") {
++  grd_prefix = "restricted_page"
++  non_web_component_files = [
++    "restricted_page.html",
++    "restricted_page.css",
++    "restricted_page.js",
++  ]
++  ts_deps = [
++    "//ui/webui/resources/js:build_ts",
++  ]
++}
++
++group("resources") {
++  public_deps = [ ":build" ]
++}
+--- /dev/null
++++ b/chrome/browser/resources/godseye/godseye.html
+@@ -0,0 +1,15 @@ @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++  <meta charset="UTF-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1.0">
++  <title>God's Eye</title>
++  <link rel="stylesheet" href="godseye.css">
++</head>
++<body>
++  <div id="app">
++    <helium-godseye-app></helium-godseye-app>
++  </div>
++  <script type="module" src="godseye.js"></script>
++</body>
++</html>
+--- /dev/null
++++ b/chrome/browser/resources/godseye/godseye.css
+@@ -0,0 +1,237 @@ @@
++/* Copyright 2025 The Helium Authors */
++/* God's Eye — Full-page WebUI styles */
++
++*, *::before, *::after {
++  box-sizing: border-box;
++  margin: 0;
++  padding: 0;
++}
++
++body {
++  font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
++  background: #0d0d0d;
++  color: #e8e8e8;
++  min-height: 100vh;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++}
++
++helium-godseye-app {
++  display: block;
++  width: 100%;
++  max-width: 720px;
++  padding: 32px 24px;
++}
++
++.header {
++  text-align: center;
++  margin-bottom: 40px;
++}
++
++.header .eye-icon {
++  font-size: 56px;
++  line-height: 1;
++  margin-bottom: 12px;
++  display: block;
++}
++
++.header h1 {
++  font-size: 28px;
++  font-weight: 700;
++  letter-spacing: -0.5px;
++  color: #fff;
++}
++
++.header p {
++  font-size: 14px;
++  color: #888;
++  margin-top: 8px;
++}
++
++/* Status banner */
++.status-banner {
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  padding: 12px 16px;
++  border-radius: 10px;
++  margin-bottom: 28px;
++  font-size: 14px;
++  font-weight: 500;
++}
++
++.status-banner.active {
++  background: rgba(220, 38, 38, 0.15);
++  border: 1px solid rgba(220, 38, 38, 0.4);
++  color: #f87171;
++}
++
++.status-banner.inactive {
++  background: rgba(34, 197, 94, 0.1);
++  border: 1px solid rgba(34, 197, 94, 0.3);
++  color: #4ade80;
++}
++
++.status-dot {
++  width: 8px;
++  height: 8px;
++  border-radius: 50%;
++  flex-shrink: 0;
++}
++
++.status-banner.active .status-dot { background: #ef4444; }
++.status-banner.inactive .status-dot { background: #22c55e; }
++
++/* Card sections */
++.card {
++  background: #1a1a1a;
++  border: 1px solid #2a2a2a;
++  border-radius: 12px;
++  padding: 20px;
++  margin-bottom: 16px;
++}
++
++.card-title {
++  font-size: 13px;
++  font-weight: 600;
++  color: #aaa;
++  text-transform: uppercase;
++  letter-spacing: 0.8px;
++  margin-bottom: 14px;
++}
++
++/* Input row */
++.input-row {
++  display: flex;
++  gap: 8px;
++  margin-bottom: 12px;
++}
++
++.input-row input {
++  flex: 1;
++  background: #111;
++  border: 1px solid #333;
++  border-radius: 8px;
++  padding: 10px 14px;
++  color: #e8e8e8;
++  font-size: 14px;
++  outline: none;
++  transition: border-color 0.15s;
++}
++
++.input-row input:focus {
++  border-color: #555;
++}
++
++.btn {
++  padding: 10px 18px;
++  border: none;
++  border-radius: 8px;
++  font-size: 14px;
++  font-weight: 500;
++  cursor: pointer;
++  transition: opacity 0.15s, background 0.15s;
++}
++
++.btn:disabled { opacity: 0.4; cursor: not-allowed; }
++
++.btn-primary {
++  background: #2563eb;
++  color: #fff;
++}
++
++.btn-primary:hover:not(:disabled) { background: #1d4ed8; }
++
++.btn-danger {
++  background: rgba(239, 68, 68, 0.15);
++  color: #f87171;
++  border: 1px solid rgba(239, 68, 68, 0.3);
++  padding: 4px 10px;
++  font-size: 12px;
++  border-radius: 6px;
++}
++
++.btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.25); }
++
++/* Tag list */
++.tag-list {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 8px;
++}
++
++.tag {
++  display: inline-flex;
++  align-items: center;
++  gap: 6px;
++  background: #222;
++  border: 1px solid #333;
++  border-radius: 6px;
++  padding: 5px 10px;
++  font-size: 13px;
++  color: #ccc;
++}
++
++.tag .remove-btn {
++  background: none;
++  border: none;
++  color: #666;
++  cursor: pointer;
++  font-size: 14px;
++  line-height: 1;
++  padding: 0 2px;
++  transition: color 0.1s;
++}
++
++.tag .remove-btn:hover:not(:disabled) { color: #f87171; }
++.tag .remove-btn:disabled { cursor: not-allowed; opacity: 0.3; }
++
++/* Expiry picker */
++.expiry-section label {
++  display: block;
++  font-size: 13px;
++  color: #888;
++  margin-bottom: 8px;
++}
++
++.expiry-section input[type="datetime-local"] {
++  background: #111;
++  border: 1px solid #333;
++  border-radius: 8px;
++  padding: 10px 14px;
++  color: #e8e8e8;
++  font-size: 14px;
++  outline: none;
++  width: 100%;
++  color-scheme: dark;
++}
++
++/* Activate button */
++.activate-btn {
++  width: 100%;
++  padding: 14px;
++  font-size: 15px;
++  font-weight: 600;
++  background: linear-gradient(135deg, #dc2626, #9f1239);
++  color: #fff;
++  border: none;
++  border-radius: 10px;
++  cursor: pointer;
++  margin-top: 8px;
++  transition: opacity 0.15s;
++}
++
++.activate-btn:hover:not(:disabled) { opacity: 0.9; }
++.activate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
++
++/* Countdown */
++.countdown {
++  font-size: 22px;
++  font-weight: 700;
++  color: #f87171;
++  text-align: center;
++  margin-top: 6px;
++}
++
++.empty-hint { color: #555; font-size: 13px; font-style: italic; }
+--- /dev/null
++++ b/chrome/browser/resources/godseye/godseye.ts
+@@ -0,0 +1,355 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++import {sendWithPromise} from 'chrome://resources/js/cr.js';
++
++interface GodsEyeState {
++  isEnabled: boolean;
++  isLocked: boolean;
++  expirySeconds: number;
++  secondsRemaining: number;
++  blockedUrls: string[];
++  blockedKeywords: string[];
++}
++
++class HeliumGodsEyeApp extends HTMLElement {
++  private state: GodsEyeState | null = null;
++  private urlInput: HTMLInputElement | null = null;
++  private keywordInput: HTMLInputElement | null = null;
++  private expiryInput: HTMLInputElement | null = null;
++  private countdownInterval: number | null = null;
++  private pendingUrls: string[] = [];
++  private pendingKeywords: string[] = [];
++
++  connectedCallback() {
++    this.render();
++    this.loadState();
++  }
++
++  disconnectedCallback() {
++    if (this.countdownInterval !== null) {
++      clearInterval(this.countdownInterval);
++    }
++  }
++
++  private async loadState() {
++    try {
++      this.state = await sendWithPromise<GodsEyeState>('getGodsEyeState');
++      this.render();
++      if (this.state.isLocked) {
++        this.startCountdown();
++      }
++    } catch (e) {
++      console.error('Failed to load God\'s Eye state', e);
++    }
++  }
++
++  private startCountdown() {
++    if (this.countdownInterval !== null) clearInterval(this.countdownInterval);
++    this.countdownInterval = window.setInterval(() => {
++      if (this.state) {
++        this.state.secondsRemaining = Math.max(0, this.state.secondsRemaining - 1);
++        this.updateCountdownDisplay();
++        if (this.state.secondsRemaining === 0) {
++          clearInterval(this.countdownInterval!);
++          this.loadState();
++        }
++      }
++    }, 1000);
++  }
++
++  private formatCountdown(secs: number): string {
++    const d = Math.floor(secs / 86400);
++    const h = Math.floor((secs % 86400) / 3600);
++    const m = Math.floor((secs % 3600) / 60);
++    const s = secs % 60;
++    const parts = [];
++    if (d > 0) parts.push(`${d}d`);
++    if (h > 0 || d > 0) parts.push(`${h}h`);
++    if (m > 0 || h > 0 || d > 0) parts.push(`${m}m`);
++    parts.push(`${s}s`);
++    return parts.join(' ');
++  }
++
++  private updateCountdownDisplay() {
++    const el = this.querySelector('#countdown-display');
++    if (el && this.state) {
++      el.textContent = this.formatCountdown(this.state.secondsRemaining);
++    }
++  }
++
++  private async fetchCurrentUtcSeconds(): Promise<number> {
++    // Use timeapi.io for authoritative UTC time (not system clock).
++    try {
++      const resp = await fetch(
++          'https://timeapi.io/api/time/current/zone?timeZone=UTC',
++          {cache: 'no-store'});
++      if (resp.ok) {
++        const json = await resp.json();
++        // dateTime is ISO8601 in UTC
++        return Math.floor(new Date(json.dateTime + 'Z').getTime() / 1000);
++      }
++    } catch (_) {}
++    // Fallback to local time only if network unavailable
++    return Math.floor(Date.now() / 1000);
++  }
++
++  private async handleActivate() {
++    const expiryInput = this.expiryInput;
++    if (!expiryInput || !expiryInput.value) {
++      alert('Please select an expiry date and time.');
++      return;
++    }
++
++    // Get authoritative current UTC time from timeapi.io
++    const nowUtc = await this.fetchCurrentUtcSeconds();
++    // Convert local datetime-local value to UTC seconds
++    const localDate = new Date(expiryInput.value);
++    const expiryUtcSeconds = Math.floor(localDate.getTime() / 1000);
++
++    if (expiryUtcSeconds <= nowUtc) {
++      alert('Expiry time must be in the future.');
++      return;
++    }
++
++    const allUrls = [
++      ...(this.state?.blockedUrls || []),
++      ...this.pendingUrls,
++    ];
++    const allKeywords = [
++      ...(this.state?.blockedKeywords || []),
++      ...this.pendingKeywords,
++    ];
++
++    if (allUrls.length === 0 && allKeywords.length === 0) {
++      alert('Add at least one URL or keyword to block.');
++      return;
++    }
++
++    await sendWithPromise('activateGodsEye', expiryUtcSeconds, allUrls, allKeywords);
++    this.pendingUrls = [];
++    this.pendingKeywords = [];
++    await this.loadState();
++  }
++
++  private async handleAddUrl(url: string) {
++    if (!url.trim()) return;
++    const clean = url.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
++    if (!clean) return;
++
++    if (this.state?.isEnabled) {
++      // Already activated — add directly via handler
++      await sendWithPromise('godsEyeAddUrl', clean);
++      await this.loadState();
++    } else {
++      // Pre-activation: accumulate locally
++      if (!this.pendingUrls.includes(clean)) {
++        this.pendingUrls.push(clean);
++      }
++      this.render();
++    }
++    if (this.urlInput) this.urlInput.value = '';
++  }
++
++  private async handleAddKeyword(keyword: string) {
++    if (!keyword.trim()) return;
++    const clean = keyword.trim().toLowerCase();
++    if (!clean) return;
++
++    if (this.state?.isEnabled) {
++      await sendWithPromise('godsEyeAddKeyword', clean);
++      await this.loadState();
++    } else {
++      if (!this.pendingKeywords.includes(clean)) {
++        this.pendingKeywords.push(clean);
++      }
++      this.render();
++    }
++    if (this.keywordInput) this.keywordInput.value = '';
++  }
++
++  private async handleRemoveUrl(url: string) {
++    await sendWithPromise('godsEyeRemoveUrl', url);
++    await this.loadState();
++  }
++
++  private async handleRemoveKeyword(keyword: string) {
++    await sendWithPromise('godsEyeRemoveKeyword', keyword);
++    await this.loadState();
++  }
++
++  private removePendingUrl(url: string) {
++    this.pendingUrls = this.pendingUrls.filter(u => u !== url);
++    this.render();
++  }
++
++  private removePendingKeyword(kw: string) {
++    this.pendingKeywords = this.pendingKeywords.filter(k => k !== kw);
++    this.render();
++  }
++
++  private render() {
++    const s = this.state;
++    const isActive = s?.isEnabled ?? false;
++    const isLocked = s?.isLocked ?? false;
++
++    const allUrls = [...(s?.blockedUrls || []), ...(!isActive ? this.pendingUrls : [])];
++    const allKeywords = [...(s?.blockedKeywords || []), ...(!isActive ? this.pendingKeywords : [])];
++
++    let countdown = '';
++    if (isLocked && s) {
++      countdown = this.formatCountdown(s.secondsRemaining);
++    }
++
++    this.innerHTML = `
++      <div class="header">
++        <span class="eye-icon">&#x1F441;</span>
++        <h1>God's Eye</h1>
++        <p>Focus blocker — lock URLs and keywords until a chosen time</p>
++      </div>
++
++      ${isActive ? `
++        <div class="status-banner ${isLocked ? 'active' : 'inactive'}">
++          <div class="status-dot"></div>
++          ${isLocked
++            ? `LOCKED &mdash; cannot edit existing entries`
++            : `UNLOCKED &mdash; expiry has passed, you may now edit entries`}
++        </div>
++        ${isLocked ? `
++          <div class="card" style="text-align:center;padding:16px 20px;">
++            <div class="card-title">Time Remaining</div>
++            <div class="countdown" id="countdown-display">${countdown}</div>
++          </div>
++        ` : ''}
++      ` : `
++        <div class="status-banner inactive">
++          <div class="status-dot"></div>
++          God's Eye is not active
++        </div>
++      `}
++
++      <!-- URL Blocking Card -->
++      <div class="card">
++        <div class="card-title">Blocked Domains</div>
++        <div class="input-row">
++          <input id="url-input" type="text" placeholder="example.com or sub.example.com" />
++          <button id="add-url-btn" class="btn btn-primary">Add</button>
++        </div>
++        <div class="tag-list">
++          ${allUrls.length === 0
++            ? '<span class="empty-hint">No domains blocked yet</span>'
++            : allUrls.map(u => {
++                const isPending = !isActive && this.pendingUrls.includes(u);
++                const canRemove = !isLocked || isPending;
++                return `
++                  <span class="tag">
++                    ${this.escapeHtml(u)}
++                    <button class="remove-btn" data-url="${this.escapeHtml(u)}"
++                      data-pending="${isPending}"
++                      ${canRemove ? '' : 'disabled'}
++                      title="${isLocked && !isPending ? 'Locked until expiry' : 'Remove'}">
++                      &times;
++                    </button>
++                  </span>`;
++              }).join('')}
++        </div>
++      </div>
++
++      <!-- Keyword Blocking Card -->
++      <div class="card">
++        <div class="card-title">Blocked Keywords</div>
++        <div class="input-row">
++          <input id="keyword-input" type="text" placeholder="keyword, phrase..." />
++          <button id="add-keyword-btn" class="btn btn-primary">Add</button>
++        </div>
++        <div class="tag-list">
++          ${allKeywords.length === 0
++            ? '<span class="empty-hint">No keywords blocked yet</span>'
++            : allKeywords.map(k => {
++                const isPending = !isActive && this.pendingKeywords.includes(k);
++                const canRemove = !isLocked || isPending;
++                return `
++                  <span class="tag">
++                    ${this.escapeHtml(k)}
++                    <button class="remove-btn" data-keyword="${this.escapeHtml(k)}"
++                      data-pending="${isPending}"
++                      ${canRemove ? '' : 'disabled'}
++                      title="${isLocked && !isPending ? 'Locked until expiry' : 'Remove'}">
++                      &times;
++                    </button>
++                  </span>`;
++              }).join('')}
++        </div>
++      </div>
++
++      ${!isActive ? `
++        <!-- Expiry Picker -->
++        <div class="card expiry-section">
++          <div class="card-title">Lock Until</div>
++          <label>Choose the date and time when blocking expires:</label>
++          <input id="expiry-input" type="datetime-local" />
++        </div>
++        <button id="activate-btn" class="activate-btn">
++          Activate God's Eye
++        </button>
++      ` : ''}
++    `;
++
++    // Wire up event listeners after render
++    this.urlInput = this.querySelector('#url-input');
++    this.keywordInput = this.querySelector('#keyword-input');
++    this.expiryInput = this.querySelector('#expiry-input');
++
++    this.querySelector('#add-url-btn')?.addEventListener('click', () => {
++      this.handleAddUrl(this.urlInput?.value || '');
++    });
++    this.urlInput?.addEventListener('keydown', (e: Event) => {
++      if ((e as KeyboardEvent).key === 'Enter') this.handleAddUrl(this.urlInput?.value || '');
++    });
++
++    this.querySelector('#add-keyword-btn')?.addEventListener('click', () => {
++      this.handleAddKeyword(this.keywordInput?.value || '');
++    });
++    this.keywordInput?.addEventListener('keydown', (e: Event) => {
++      if ((e as KeyboardEvent).key === 'Enter') this.handleAddKeyword(this.keywordInput?.value || '');
++    });
++
++    this.querySelector('#activate-btn')?.addEventListener('click', () => {
++      this.handleActivate();
++    });
++
++    // Remove buttons for URLs
++    this.querySelectorAll('[data-url]').forEach(btn => {
++      btn.addEventListener('click', () => {
++        const url = (btn as HTMLElement).dataset['url'] || '';
++        const isPending = (btn as HTMLElement).dataset['pending'] === 'true';
++        if (isPending) {
++          this.removePendingUrl(url);
++        } else {
++          this.handleRemoveUrl(url);
++        }
++      });
++    });
++
++    // Remove buttons for keywords
++    this.querySelectorAll('[data-keyword]').forEach(btn => {
++      btn.addEventListener('click', () => {
++        const kw = (btn as HTMLElement).dataset['keyword'] || '';
++        const isPending = (btn as HTMLElement).dataset['pending'] === 'true';
++        if (isPending) {
++          this.removePendingKeyword(kw);
++        } else {
++          this.handleRemoveKeyword(kw);
++        }
++      });
++    });
++  }
++
++  private escapeHtml(str: string): string {
++    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;')
++              .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
++  }
++}
++
++customElements.define('helium-godseye-app', HeliumGodsEyeApp);
+--- /dev/null
++++ b/chrome/browser/resources/restricted_page/restricted_page.html
+@@ -0,0 +1,15 @@ @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++  <meta charset="UTF-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1.0">
++  <title>Restricted — God's Eye</title>
++  <link rel="stylesheet" href="restricted_page.css">
++</head>
++<body>
++  <div id="app">
++    <div id="content"></div>
++  </div>
++  <script src="restricted_page.js"></script>
++</body>
++</html>
+--- /dev/null
++++ b/chrome/browser/resources/restricted_page/restricted_page.css
+@@ -0,0 +1,137 @@ @@
++/* Copyright 2025 The Helium Authors */
++/* God's Eye — Restricted Page */
++
++*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
++
++body {
++  font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
++  background: #080808;
++  color: #e8e8e8;
++  min-height: 100vh;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  padding: 32px 16px;
++}
++
++#app {
++  text-align: center;
++  max-width: 580px;
++  width: 100%;
++}
++
++.eye-icon {
++  font-size: 72px;
++  display: block;
++  margin-bottom: 16px;
++  opacity: 0.9;
++}
++
++.lock-badge {
++  display: inline-flex;
++  align-items: center;
++  gap: 6px;
++  background: rgba(220, 38, 38, 0.2);
++  border: 1px solid rgba(220, 38, 38, 0.5);
++  color: #f87171;
++  padding: 6px 14px;
++  border-radius: 20px;
++  font-size: 12px;
++  font-weight: 700;
++  letter-spacing: 1px;
++  text-transform: uppercase;
++  margin-bottom: 24px;
++}
++
++h1 {
++  font-size: 26px;
++  font-weight: 700;
++  color: #fff;
++  margin-bottom: 12px;
++  line-height: 1.3;
++}
++
++.detected-value {
++  display: inline-block;
++  background: #1a1a1a;
++  border: 1px solid #333;
++  border-radius: 6px;
++  padding: 4px 12px;
++  font-family: monospace;
++  font-size: 15px;
++  color: #f97316;
++  margin: 4px 0 16px;
++  word-break: break-all;
++}
++
++.countdown-card {
++  background: #111;
++  border: 1px solid #222;
++  border-radius: 12px;
++  padding: 20px;
++  margin: 24px 0;
++}
++
++.countdown-label {
++  font-size: 12px;
++  text-transform: uppercase;
++  letter-spacing: 0.8px;
++  color: #666;
++  margin-bottom: 8px;
++}
++
++.countdown-value {
++  font-size: 32px;
++  font-weight: 700;
++  color: #f87171;
++}
++
++.countdown-sub {
++  font-size: 13px;
++  color: #555;
++  margin-top: 4px;
++}
++
++.quote-card {
++  background: #0f0f0f;
++  border: 1px solid #1e1e1e;
++  border-radius: 12px;
++  padding: 20px 24px;
++  margin-top: 24px;
++}
++
++.quote-label {
++  font-size: 11px;
++  text-transform: uppercase;
++  letter-spacing: 0.8px;
++  color: #444;
++  margin-bottom: 10px;
++}
++
++.quote-text {
++  font-size: 16px;
++  font-style: italic;
++  color: #aaa;
++  line-height: 1.6;
++}
++
++.quote-author {
++  font-size: 13px;
++  color: #555;
++  margin-top: 8px;
++}
++
++.open-godseye {
++  display: inline-block;
++  margin-top: 28px;
++  padding: 10px 20px;
++  background: #1a1a1a;
++  border: 1px solid #2a2a2a;
++  border-radius: 8px;
++  color: #888;
++  font-size: 13px;
++  text-decoration: none;
++  transition: color 0.15s, border-color 0.15s;
++}
++
++.open-godseye:hover { color: #ccc; border-color: #444; }
+--- /dev/null
++++ b/chrome/browser/resources/restricted_page/restricted_page.js
+@@ -0,0 +1,130 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++'use strict';
++
++const MOTIVATIONAL_QUOTES = [
++  { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
++  { text: "It does not matter how slowly you go as long as you do not stop.", author: "Confucius" },
++  { text: "Our greatest glory is not in never falling, but in rising every time we fall.", author: "Confucius" },
++  { text: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
++  { text: "You are never too old to set another goal or to dream a new dream.", author: "C.S. Lewis" },
++  { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
++  { text: "Don't watch the clock; do what it does. Keep going.", author: "Sam Levenson" },
++  { text: "Quality is not an act, it is a habit.", author: "Aristotle" },
++  { text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier" },
++  { text: "With the new day comes new strength and new thoughts.", author: "Eleanor Roosevelt" },
++];
++
++function getParams() {
++  const params = new URLSearchParams(window.location.search);
++  return {
++    type: params.get('type') || 'url',
++    value: params.get('value') || '',
++  };
++}
++
++function formatCountdown(secs) {
++  secs = Math.max(0, Math.floor(secs));
++  const d = Math.floor(secs / 86400);
++  const h = Math.floor((secs % 86400) / 3600);
++  const m = Math.floor((secs % 3600) / 60);
++  const s = secs % 60;
++  const parts = [];
++  if (d > 0) parts.push(d + 'd');
++  if (h > 0 || d > 0) parts.push(h + 'h');
++  if (m > 0 || h > 0 || d > 0) parts.push(m + 'm');
++  parts.push(s + 's');
++  return parts.join(' ');
++}
++
++function escapeHtml(str) {
++  return String(str)
++    .replace(/&/g, '&amp;')
++    .replace(/</g, '&lt;')
++    .replace(/>/g, '&gt;')
++    .replace(/"/g, '&quot;');
++}
++
++var remainingSecs = 0;
++var countdownEl = null;
++var countdownInterval = null;
++
++function startCountdown(initial) {
++  remainingSecs = initial;
++  countdownEl = document.getElementById('countdown-value');
++  if (countdownInterval) clearInterval(countdownInterval);
++  countdownInterval = setInterval(function() {
++    remainingSecs = Math.max(0, remainingSecs - 1);
++    if (countdownEl) countdownEl.textContent = formatCountdown(remainingSecs);
++    if (remainingSecs === 0) clearInterval(countdownInterval);
++  }, 1000);
++}
++
++function render(info) {
++  var p = getParams();
++  var typeLabel = p.type === 'keyword' ? 'Keyword' : 'URL';
++  var quote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
++
++  var days = info ? info.daysRemaining : 0;
++
++  document.getElementById('content').innerHTML =
++    '<span class="eye-icon">&#x1F441;</span>' +
++    '<div class="lock-badge">&#x1F512; God\'s Eye Active</div>' +
++    '<h1>Restricted ' + typeLabel + ' Detected</h1>' +
++    '<div class="detected-value">' + escapeHtml(p.value || '—') + '</div>' +
++    '<p style="color:#666;font-size:14px;">' +
++      (p.type === 'keyword'
++        ? 'This page contains a keyword you have blocked.'
++        : 'You attempted to access a domain you have blocked.') +
++    '</p>' +
++    '<div class="countdown-card">' +
++      '<div class="countdown-label">Unlocks in</div>' +
++      '<div class="countdown-value" id="countdown-value">' +
++        (info ? formatCountdown(info.secondsRemaining) : '—') +
++      '</div>' +
++      '<div class="countdown-sub">' +
++        (days > 0 ? days + ' day' + (days !== 1 ? 's' : '') + ' remaining' : 'Expiring today') +
++      '</div>' +
++    '</div>' +
++    '<div class="quote-card">' +
++      '<div class="quote-label">Stay Focused</div>' +
++      '<div class="quote-text">&ldquo;' + escapeHtml(quote.text) + '&rdquo;</div>' +
++      '<div class="quote-author">&mdash; ' + escapeHtml(quote.author) + '</div>' +
++    '</div>' +
++    '<a class="open-godseye" href="helium://godseye">Manage God\'s Eye &rarr;</a>';
++
++  if (info) {
++    startCountdown(info.secondsRemaining);
++  }
++}
++
++// Request data from C++ handler
++chrome.send('getGodsEyeInfo', []);
++// The handler resolves via sendWithPromise pattern; use cr.sendWithPromise
++// but since this page uses plain JS, use the callback pattern directly.
++window.cr_define = window.cr_define || {};
++
++// Fallback render with no data (will be overwritten when handler responds)
++render(null);
++
++// Use cr.js sendWithPromise equivalent for plain JS pages
++if (window.cr && window.cr.sendWithPromise) {
++  window.cr.sendWithPromise('getGodsEyeInfo').then(function(info) {
++    render(info);
++  });
++} else {
++  // Chromium WebUI pages have access to chrome.send; simulate promise via
++  // a known callback convention used by some internal pages.
++  var script = document.createElement('script');
++  script.src = 'chrome://resources/js/cr.js';
++  script.onload = function() {
++    if (window.sendWithPromise) {
++      window.sendWithPromise('getGodsEyeInfo').then(function(info) {
++        render(info);
++      });
++    }
++  };
++  document.head.appendChild(script);
++}

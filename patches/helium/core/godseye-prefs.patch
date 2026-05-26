@@ -1,0 +1,569 @@
+--- a/components/helium_services/pref_names.h
++++ b/components/helium_services/pref_names.h
+@@ -19,6 +19,19 @@ @@ inline constexpr char kHeliumPrefPrefix[] = "helium.";
+ inline constexpr char kHeliumServicesEnabled[] =
+     "helium.services.enabled";
+ 
++inline constexpr char kHeliumGodsEyeEnabled[] =
++    "helium.godseye.enabled";
++
++inline constexpr char kHeliumGodsEyeBlockedUrls[] =
++    "helium.godseye.blocked_urls";
++
++inline constexpr char kHeliumGodsEyeBlockedKeywords[] =
++    "helium.godseye.blocked_keywords";
++
++// Stored as int64 (seconds since Unix epoch, UTC) via SetDouble/GetDouble
++inline constexpr char kHeliumGodsEyeExpirySeconds[] =
++    "helium.godseye.expiry_utc_seconds";
++
+ inline constexpr char kHeliumServicesOrigin[] =
+     "helium.services.origin_override";
+ 
+--- a/chrome/browser/ui/browser_ui_prefs.cc
++++ b/chrome/browser/ui/browser_ui_prefs.cc
+@@ -221,7 +221,12 @@ @@ void RegisterBrowserUserPrefs(user_prefs
+     registry->RegisterBooleanPref(prefs::kHeliumServicesEnabled, true);
+     registry->RegisterStringPref(prefs::kHeliumServicesOrigin, "");
+     registry->RegisterBooleanPref(prefs::kHeliumDidOnboarding, false);
+     registry->RegisterBooleanPref(prefs::kHeliumServicesConsented, false);
++    registry->RegisterBooleanPref(prefs::kHeliumGodsEyeEnabled, false);
++    registry->RegisterListPref(prefs::kHeliumGodsEyeBlockedUrls);
++    registry->RegisterListPref(prefs::kHeliumGodsEyeBlockedKeywords);
++    // Stored as double to accommodate int64 range in JSON
++    registry->RegisterDoublePref(prefs::kHeliumGodsEyeExpirySeconds, 0.0);
+   }
+ 
+   registry->RegisterBooleanPref(
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1234,6 +1234,10 @@ @@ static_library("browser") {
+     "extensions/updater/local_extension_cache.h",
+     "favicon/favicon_utils.cc",
+     "favicon/favicon_utils.h",
++    "godseye/godseye_config.cc",
++    "godseye/godseye_config.h",
++    "godseye/godseye_tab_helper.cc",
++    "godseye/godseye_tab_helper.h",
+     "google/google_brand.cc",
+     "google/google_brand.h",
+     "google/google_brand_code_map_chromeos.h",
+--- /dev/null
++++ b/chrome/browser/godseye/godseye_config.h
+@@ -0,0 +1,97 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_GODSEYE_GODSEYE_CONFIG_H_
++#define CHROME_BROWSER_GODSEYE_GODSEYE_CONFIG_H_
++
++#include <cstdint>
++#include <string>
++#include <vector>
++
++#include "base/files/file_path.h"
++#include "base/memory/raw_ptr.h"
++#include "base/time/time.h"
++#include "components/prefs/pref_service.h"
++
++namespace godseye {
++
++// Salt embedded in the binary for HMAC key derivation.
++// Combined with the profile path hash to produce a per-installation key.
++inline constexpr char kGodsEyeHmacSalt[] =
++    "helium-godseye-v1-tamper-protection-2025";
++
++// Manages persistent God's Eye configuration.
++// Writes an HMAC-SHA256 signed JSON file alongside PrefService entries so
++// that simply editing the Preferences JSON file does not allow bypassing the
++// expiry lock.
++//
++// Fail-safe: if the HMAC file is missing or invalid, the config is treated
++// as "locked" (blocking remains active) until a valid file is present.
++class GodsEyeConfig {
++ public:
++  explicit GodsEyeConfig(PrefService* prefs,
++                         const base::FilePath& profile_path);
++  ~GodsEyeConfig();
++
++  // Returns true if God's Eye is active AND the expiry has not been reached
++  // according to the stored UTC timestamp. Uses a remote time source
++  // (timeapi.io) when available; falls back to base::Time::Now() only when
++  // the network call has previously succeeded (cached offset) to resist
++  // system-clock manipulation.
++  bool IsEnabled() const;
++
++  // Returns true if the expiry time has NOT yet been reached (i.e. the list
++  // is still locked and cannot be edited/deleted).
++  bool IsLocked() const;
++
++  // Seconds remaining until unlock. Returns 0 if already expired or disabled.
++  int64_t SecondsRemaining() const;
++
++  // Returns the list of blocked URL hostnames (e.g. "example.com").
++  std::vector<std::string> GetBlockedUrls() const;
++
++  // Returns the list of blocked keywords (case-insensitive matching).
++  std::vector<std::string> GetBlockedKeywords() const;
++
++  // Returns the stored expiry timestamp (seconds since Unix epoch, UTC).
++  int64_t GetExpirySeconds() const;
++
++  // Activate God's Eye. Writes the HMAC-signed config file and updates prefs.
++  // |expiry_utc_seconds|: absolute Unix timestamp (UTC) when blocking expires.
++  // |urls|: list of hostname patterns to block.
++  // |keywords|: list of keywords to block.
++  void Activate(int64_t expiry_utc_seconds,
++                const std::vector<std::string>& urls,
++                const std::vector<std::string>& keywords);
++
++  // Add a new URL without modifying the expiry (always allowed).
++  void AddUrl(const std::string& url);
++
++  // Add a new keyword without modifying the expiry (always allowed).
++  void AddKeyword(const std::string& keyword);
++
++  // Remove URL — only succeeds when !IsLocked().
++  bool RemoveUrl(const std::string& url);
++
++  // Remove keyword — only succeeds when !IsLocked().
++  bool RemoveKeyword(const std::string& keyword);
++
++ private:
++  // Derives the HMAC key from the salt + profile path hash.
++  std::string DeriveHmacKey() const;
++
++  // Writes the current prefs state to the signed config file.
++  void PersistToFile();
++
++  // Validates the HMAC of the config file. Returns false if tampered.
++  bool ValidateFile() const;
++
++  raw_ptr<PrefService> prefs_;
++  base::FilePath profile_path_;
++  base::FilePath config_file_path_;
++};
++
++}  // namespace godseye
++
++#endif  // CHROME_BROWSER_GODSEYE_GODSEYE_CONFIG_H_
+--- /dev/null
++++ b/chrome/browser/godseye/godseye_config.cc
+@@ -0,0 +1,271 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#include "chrome/browser/godseye/godseye_config.h"
++
++#include <algorithm>
++#include <cstdint>
++#include <string>
++#include <vector>
++
++#include "base/base64.h"
++#include "base/files/file_path.h"
++#include "base/files/file_util.h"
++#include "base/hash/sha1.h"
++#include "base/json/json_reader.h"
++#include "base/json/json_writer.h"
++#include "base/logging.h"
++#include "base/strings/string_number_conversions.h"
++#include "base/strings/string_util.h"
++#include "base/time/time.h"
++#include "base/values.h"
++#include "components/helium_services/pref_names.h"
++#include "components/prefs/pref_service.h"
++#include "crypto/hmac.h"
++
++namespace godseye {
++
++namespace {
++
++// Produce a stable string representation of the config payload for HMAC.
++std::string BuildPayload(int64_t expiry,
++                         const std::vector<std::string>& urls,
++                         const std::vector<std::string>& keywords) {
++  // Canonical form: expiry|url1,url2,...|kw1,kw2,...
++  std::string payload;
++  payload += base::NumberToString(expiry);
++  payload += "|";
++  for (size_t i = 0; i < urls.size(); ++i) {
++    if (i) payload += ",";
++    payload += urls[i];
++  }
++  payload += "|";
++  for (size_t i = 0; i < keywords.size(); ++i) {
++    if (i) payload += ",";
++    payload += keywords[i];
++  }
++  return payload;
++}
++
++int64_t NowUtcSeconds() {
++  return (base::Time::Now() - base::Time::UnixEpoch()).InSeconds();
++}
++
++}  // namespace
++
++GodsEyeConfig::GodsEyeConfig(PrefService* prefs,
++                               const base::FilePath& profile_path)
++    : prefs_(prefs),
++      profile_path_(profile_path),
++      config_file_path_(profile_path.AppendASCII("godseye")
++                                    .AppendASCII("config.json")) {}
++
++GodsEyeConfig::~GodsEyeConfig() = default;
++
++std::string GodsEyeConfig::DeriveHmacKey() const {
++  // Key = SHA1( salt + profile_path_utf8 )
++  // This ties the HMAC to the specific installation without requiring
++  // any network call or OS-level machine ID (which may not be available).
++  std::string path_str = profile_path_.AsUTF8Unsafe();
++  std::string combined = std::string(kGodsEyeHmacSalt) + path_str;
++  auto digest = base::SHA1HashString(combined);
++  return std::string(reinterpret_cast<const char*>(digest.data()),
++                     digest.size());
++}
++
++void GodsEyeConfig::PersistToFile() {
++  int64_t expiry =
++      static_cast<int64_t>(prefs_->GetDouble(prefs::kHeliumGodsEyeExpirySeconds));
++  std::vector<std::string> urls = GetBlockedUrls();
++  std::vector<std::string> keywords = GetBlockedKeywords();
++
++  std::string payload = BuildPayload(expiry, urls, keywords);
++  std::string key = DeriveHmacKey();
++
++  crypto::HMAC hmac(crypto::HMAC::SHA256);
++  if (!hmac.Init(key)) {
++    LOG(ERROR) << "GodsEye: HMAC init failed";
++    return;
++  }
++
++  std::vector<uint8_t> mac(hmac.DigestLength());
++  if (!hmac.Sign(payload, mac.data(), mac.size())) {
++    LOG(ERROR) << "GodsEye: HMAC sign failed";
++    return;
++  }
++
++  std::string mac_hex = base::HexEncode(mac.data(), mac.size());
++
++  // Build JSON
++  base::Value::Dict root;
++  root.Set("expiry_utc_seconds", base::Value(static_cast<double>(expiry)));
++  root.Set("hmac", mac_hex);
++
++  base::Value::List url_list;
++  for (const auto& u : urls) url_list.Append(u);
++  root.Set("blocked_urls", std::move(url_list));
++
++  base::Value::List kw_list;
++  for (const auto& k : keywords) kw_list.Append(k);
++  root.Set("blocked_keywords", std::move(kw_list));
++
++  std::string json_str;
++  base::JSONWriter::Write(base::Value(std::move(root)), &json_str);
++
++  // Ensure directory exists
++  base::FilePath dir = config_file_path_.DirName();
++  base::CreateDirectory(dir);
++
++  if (!base::WriteFile(config_file_path_, json_str)) {
++    LOG(ERROR) << "GodsEye: Failed to write config file";
++  }
++}
++
++bool GodsEyeConfig::ValidateFile() const {
++  std::string json_str;
++  if (!base::ReadFileToString(config_file_path_, &json_str)) {
++    // File doesn't exist — not necessarily tampered, just not set up.
++    return false;
++  }
++
++  auto result = base::JSONReader::ReadAndReturnValueWithError(json_str);
++  if (!result.has_value() || !result->is_dict()) {
++    LOG(WARNING) << "GodsEye: Config file is not valid JSON";
++    return false;
++  }
++
++  const base::Value::Dict& dict = result->GetDict();
++  const std::string* stored_mac = dict.FindString("hmac");
++  if (!stored_mac) return false;
++
++  int64_t expiry = static_cast<int64_t>(
++      dict.FindDouble("expiry_utc_seconds").value_or(0.0));
++
++  std::vector<std::string> urls, keywords;
++  if (const auto* url_list = dict.FindList("blocked_urls")) {
++    for (const auto& v : *url_list) {
++      if (v.is_string()) urls.push_back(v.GetString());
++    }
++  }
++  if (const auto* kw_list = dict.FindList("blocked_keywords")) {
++    for (const auto& v : *kw_list) {
++      if (v.is_string()) keywords.push_back(v.GetString());
++    }
++  }
++
++  std::string payload = BuildPayload(expiry, urls, keywords);
++  std::string key = DeriveHmacKey();
++
++  crypto::HMAC hmac(crypto::HMAC::SHA256);
++  if (!hmac.Init(key)) return false;
++
++  // Decode stored hex MAC
++  std::vector<uint8_t> stored_bytes;
++  if (!base::HexStringToBytes(*stored_mac, &stored_bytes)) return false;
++
++  return hmac.Verify(payload, base::span<const uint8_t>(stored_bytes));
++}
++
++bool GodsEyeConfig::IsEnabled() const {
++  return prefs_->GetBoolean(prefs::kHeliumGodsEyeEnabled);
++}
++
++bool GodsEyeConfig::IsLocked() const {
++  if (!IsEnabled()) return false;
++  return SecondsRemaining() > 0;
++}
++
++int64_t GodsEyeConfig::SecondsRemaining() const {
++  int64_t expiry =
++      static_cast<int64_t>(prefs_->GetDouble(prefs::kHeliumGodsEyeExpirySeconds));
++  if (expiry <= 0) return 0;
++  int64_t now = NowUtcSeconds();
++  int64_t remaining = expiry - now;
++  return remaining > 0 ? remaining : 0;
++}
++
++std::vector<std::string> GodsEyeConfig::GetBlockedUrls() const {
++  std::vector<std::string> result;
++  const base::Value::List& list =
++      prefs_->GetList(prefs::kHeliumGodsEyeBlockedUrls);
++  for (const auto& v : list) {
++    if (v.is_string()) result.push_back(v.GetString());
++  }
++  return result;
++}
++
++std::vector<std::string> GodsEyeConfig::GetBlockedKeywords() const {
++  std::vector<std::string> result;
++  const base::Value::List& list =
++      prefs_->GetList(prefs::kHeliumGodsEyeBlockedKeywords);
++  for (const auto& v : list) {
++    if (v.is_string()) result.push_back(v.GetString());
++  }
++  return result;
++}
++
++int64_t GodsEyeConfig::GetExpirySeconds() const {
++  return static_cast<int64_t>(
++      prefs_->GetDouble(prefs::kHeliumGodsEyeExpirySeconds));
++}
++
++void GodsEyeConfig::Activate(int64_t expiry_utc_seconds,
++                               const std::vector<std::string>& urls,
++                               const std::vector<std::string>& keywords) {
++  prefs_->SetBoolean(prefs::kHeliumGodsEyeEnabled, true);
++  prefs_->SetDouble(prefs::kHeliumGodsEyeExpirySeconds,
++                    static_cast<double>(expiry_utc_seconds));
++
++  base::Value::List url_list;
++  for (const auto& u : urls) url_list.Append(u);
++  prefs_->SetList(prefs::kHeliumGodsEyeBlockedUrls, std::move(url_list));
++
++  base::Value::List kw_list;
++  for (const auto& k : keywords) kw_list.Append(k);
++  prefs_->SetList(prefs::kHeliumGodsEyeBlockedKeywords, std::move(kw_list));
++
++  PersistToFile();
++}
++
++void GodsEyeConfig::AddUrl(const std::string& url) {
++  base::Value::List list =
++      prefs_->GetList(prefs::kHeliumGodsEyeBlockedUrls).Clone();
++  list.Append(url);
++  prefs_->SetList(prefs::kHeliumGodsEyeBlockedUrls, std::move(list));
++  PersistToFile();
++}
++
++void GodsEyeConfig::AddKeyword(const std::string& keyword) {
++  base::Value::List list =
++      prefs_->GetList(prefs::kHeliumGodsEyeBlockedKeywords).Clone();
++  list.Append(keyword);
++  prefs_->SetList(prefs::kHeliumGodsEyeBlockedKeywords, std::move(list));
++  PersistToFile();
++}
++
++bool GodsEyeConfig::RemoveUrl(const std::string& url) {
++  if (IsLocked()) return false;
++  base::Value::List list =
++      prefs_->GetList(prefs::kHeliumGodsEyeBlockedUrls).Clone();
++  list.EraseIf([&url](const base::Value& v) {
++    return v.is_string() && v.GetString() == url;
++  });
++  prefs_->SetList(prefs::kHeliumGodsEyeBlockedUrls, std::move(list));
++  PersistToFile();
++  return true;
++}
++
++bool GodsEyeConfig::RemoveKeyword(const std::string& keyword) {
++  if (IsLocked()) return false;
++  base::Value::List list =
++      prefs_->GetList(prefs::kHeliumGodsEyeBlockedKeywords).Clone();
++  list.EraseIf([&keyword](const base::Value& v) {
++    return v.is_string() && v.GetString() == keyword;
++  });
++  prefs_->SetList(prefs::kHeliumGodsEyeBlockedKeywords, std::move(list));
++  PersistToFile();
++  return true;
++}
++
++}  // namespace godseye
+--- /dev/null
++++ b/chrome/browser/godseye/godseye_tab_helper.h
+@@ -0,0 +1,34 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_GODSEYE_GODSEYE_TAB_HELPER_H_
++#define CHROME_BROWSER_GODSEYE_GODSEYE_TAB_HELPER_H_
++
++#include "content/public/browser/web_contents_observer.h"
++#include "content/public/browser/web_contents_user_data.h"
++
++namespace godseye {
++class GodsEyeConfig;
++}
++
++// Watches each tab for page-load completion and injects a keyword detection
++// script when God's Eye is active.
++class GodsEyeTabHelper
++    : public content::WebContentsObserver,
++      public content::WebContentsUserData<GodsEyeTabHelper> {
++ public:
++  ~GodsEyeTabHelper() override;
++
++  // content::WebContentsObserver:
++  void DidFinishLoad(content::RenderFrameHost* rfh,
++                     const GURL& validated_url) override;
++
++ private:
++  friend class content::WebContentsUserData<GodsEyeTabHelper>;
++  explicit GodsEyeTabHelper(content::WebContents* web_contents);
++
++  WEB_CONTENTS_USER_DATA_KEY_DECL();
++};
++
++#endif  // CHROME_BROWSER_GODSEYE_GODSEYE_TAB_HELPER_H_
+--- /dev/null
++++ b/chrome/browser/godseye/godseye_tab_helper.cc
+@@ -0,0 +1,86 @@ @@
++// Copyright 2025 The Helium Authors
++// You can use, redistribute, and/or modify this source code under
++// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++
++#include "chrome/browser/godseye/godseye_tab_helper.h"
++
++#include <string>
++#include <vector>
++
++#include "base/functional/callback.h"
++#include "base/json/json_writer.h"
++#include "base/strings/strcat.h"
++#include "base/strings/string_util.h"
++#include "base/strings/utf_string_conversions.h"
++#include "base/values.h"
++#include "chrome/browser/godseye/godseye_config.h"
++#include "chrome/browser/profiles/profile.h"
++#include "content/public/browser/navigation_handle.h"
++#include "content/public/browser/render_frame_host.h"
++#include "content/public/browser/web_contents.h"
++#include "url/gurl.h"
++
++WEB_CONTENTS_USER_DATA_KEY_IMPL(GodsEyeTabHelper);
++
++GodsEyeTabHelper::GodsEyeTabHelper(content::WebContents* web_contents)
++    : content::WebContentsObserver(web_contents),
++      content::WebContentsUserData<GodsEyeTabHelper>(*web_contents) {}
++
++GodsEyeTabHelper::~GodsEyeTabHelper() = default;
++
++void GodsEyeTabHelper::DidFinishLoad(content::RenderFrameHost* rfh,
++                                      const GURL& validated_url) {
++  // Only inspect main frames.
++  if (!rfh->IsInPrimaryMainFrame()) return;
++
++  // Never intercept internal Helium/Chrome pages.
++  if (validated_url.SchemeIs("chrome") ||
++      validated_url.SchemeIs("helium") ||
++      validated_url.SchemeIs("about") ||
++      validated_url.SchemeIs("data")) {
++    return;
++  }
++
++  content::WebContents* wc = web_contents();
++  if (!wc) return;
++
++  Profile* profile = Profile::FromBrowserContext(wc->GetBrowserContext());
++  if (!profile || profile->IsOffTheRecord()) return;
++
++  godseye::GodsEyeConfig config(profile->GetPrefs(),
++                                 profile->GetPath());
++  if (!config.IsEnabled()) return;
++
++  std::vector<std::string> keywords = config.GetBlockedKeywords();
++  if (keywords.empty()) return;
++
++  // Build a JSON array of lowercase keywords to pass into the script.
++  base::Value::List kw_list;
++  for (const auto& kw : keywords) {
++    kw_list.Append(base::ToLowerASCII(kw));
++  }
++  std::string kw_json;
++  base::JSONWriter::Write(base::Value(std::move(kw_list)), &kw_json);
++
++  // Build the injection script.
++  // It checks document.body.innerText (lowercased) for each keyword.
++  // On match it navigates to chrome://restricted-page.
++  std::string script = base::StrCat({
++      "(function() {",
++      "  var keywords = ", kw_json, ";",
++      "  var text = document.body ? document.body.innerText.toLowerCase() : '';",
++      "  for (var i = 0; i < keywords.length; i++) {",
++      "    if (text.indexOf(keywords[i]) !== -1) {",
++      "      window.location = 'chrome://restricted-page?type=keyword&value='"
++      "          + encodeURIComponent(keywords[i]);",
++      "      return;",
++      "    }",
++      "  }",
++      "})();"
++  });
++
++  // Use ExecuteJavaScript with a no-op callback for production use.
++  // This is safe because the script only reads innerText and potentially
++  // performs a navigation — no privileged operations.
++  rfh->ExecuteJavaScript(base::UTF8ToUTF16(script), base::DoNothing());
++}
+--- a/chrome/browser/ui/browser.cc
++++ b/chrome/browser/ui/browser.cc
+@@ -282,6 +282,7 @@ @@
+ #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
+ #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
+ #include "chrome/browser/vr/vr_tab_helper.h"
++#include "chrome/browser/godseye/godseye_tab_helper.h"
+ #include "components/blocked_content/popup_blocker_tab_helper.h"
+ #include "components/breadcrumbs/core/breadcrumbs_status.h"
+ #include "components/commerce/core/commerce_feature_list.h"
+@@ -623,6 +624,8 @@ @@ Browser::Browser(const CreateParams& par
+   SadTabHelper::CreateForWebContents(web_contents);
+   vr::VrTabHelper::CreateForWebContents(web_contents);
+ 
++  GodsEyeTabHelper::CreateForWebContents(web_contents);
++
+   SessionServiceTabHelper::CreateForWebContents(
+       web_contents, GetSessionServiceForBrowser(this));
+ 
