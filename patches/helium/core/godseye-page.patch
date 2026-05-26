@@ -481,7 +481,7 @@
        "inspect:resources",
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/BUILD.gn
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,15 @@
 +# Copyright 2025 The Helium Authors
 +# You can use, redistribute, and/or modify this source code under
 +# the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -497,13 +497,9 @@
 +  ]
 +  ts_deps = [ "//ui/webui/resources/js:build_ts" ]
 +}
-+
-+group("resources") {
-+  public_deps = [ ":build" ]
-+}
 --- /dev/null
 +++ b/chrome/browser/resources/restricted_page/BUILD.gn
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,15 @@
 +# Copyright 2025 The Helium Authors
 +# You can use, redistribute, and/or modify this source code under
 +# the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -518,10 +514,6 @@
 +    "restricted_page.css",
 +  ]
 +  ts_deps = [ "//ui/webui/resources/js:build_ts" ]
-+}
-+
-+group("resources") {
-+  public_deps = [ ":build" ]
 +}
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/godseye.html
