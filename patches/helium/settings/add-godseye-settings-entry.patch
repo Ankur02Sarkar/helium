@@ -1,6 +1,6 @@
 --- a/chrome/app/settings_strings.grdp
 +++ b/chrome/app/settings_strings.grdp
-@@ -1950,6 +1950,12 @@ @@
+@@ -1950,6 +1950,12 @@
    <message name="IDS_SETTINGS_SECURITY_DESCRIPTION" desc="Description of the controls available on the security settings page">
      Safe Browsing (protection from dangerous sites) and other security settings
    </message>
@@ -15,7 +15,7 @@
    </message>
 --- a/chrome/browser/ui/webui/settings/settings_localized_strings_provider.cc
 +++ b/chrome/browser/ui/webui/settings/settings_localized_strings_provider.cc
-@@ -2230,6 +2230,8 @@ @@ void AddPrivacyStrings(content::WebUIDat
+@@ -2230,6 +2230,8 @@ void AddPrivacyStrings(content::WebUIDat
        {"siteSettingsSublabel", IDS_SETTINGS_PERMISSIONS_DESCRIPTION_NORMAL},
        {"securityPageTitle", IDS_SETTINGS_SECURITY},
        {"securityPageDescription", IDS_SETTINGS_SECURITY_DESCRIPTION},
@@ -26,7 +26,7 @@
        {"heliumServicesSetupPendingText", IDS_SETTINGS_HELIUM_SERVICES_SETUP_PENDING_TEXT},
 --- a/chrome/browser/resources/settings/settings_menu/settings_menu.html
 +++ b/chrome/browser/resources/settings/settings_menu/settings_menu.html
-@@ -57,6 +57,12 @@ @@
+@@ -57,6 +57,12 @@
            $i18n{peoplePageTitle}
            <cr-ripple></cr-ripple>
          </a>
@@ -41,7 +41,7 @@
              class="cr-nav-menu-item">
 --- a/chrome/browser/resources/settings/settings_menu/settings_menu.ts
 +++ b/chrome/browser/resources/settings/settings_menu/settings_menu.ts
-@@ -82,6 +82,18 @@ @@ export class SettingsMenuElement extends PolymerElement {
+@@ -82,6 +82,18 @@ export class SettingsMenuElement extends PolymerElement {
      Router.getInstance().navigateTo(routes.SEARCH);
    }
  
@@ -62,7 +62,7 @@
        this.dispatchEvent(
 --- a/chrome/browser/resources/settings/icons.html
 +++ b/chrome/browser/resources/settings/icons.html
-@@ -69,3 +69,9 @@ @@ NOTE: Chrome OS icons go in ./chromeos/o
+@@ -69,3 +69,9 @@ NOTE: Chrome OS icons go in ./chromeos/o
        <g id="person-text" viewBox="0 -960 960 960"><path d="M648-240v-72h216v72H648Zm-48-204v-72h264v72H600Zm-72-204v-72h336v72H528ZM336-480q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35ZM96-240v-63q0-28 14.5-51t38.5-35q43-21 90-32t97-11q50 0 97 11t90 32q24 12 38.5 35t14.5 51v63H96Zm240-120q-53 0-95 12.5T169-312h334q-30-23-72-35.5T336-360Zm0-192q20.4 0 34.2-13.8Q384-579.6 384-600q0-20.4-13.8-34.2Q356.4-648 336-648q-20.4 0-34.2 13.8Q288-620.4 288-600q0 20.4 13.8 34.2Q315.6-552 336-552Zm0-48Zm0 288Z"></path></g>
 +
 +      <!-- God's Eye icon: stylised open eye with a pupil -->

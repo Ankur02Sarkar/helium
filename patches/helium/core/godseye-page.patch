@@ -1,6 +1,6 @@
 --- a/chrome/common/webui_url_constants.h
 +++ b/chrome/common/webui_url_constants.h
-@@ -490,6 +490,10 @@ @@ inline constexpr char kChromeUIProfilePi
+@@ -490,6 +490,10 @@ inline constexpr char kChromeUIProfilePi
  inline constexpr char kChromeUIProfilePickerStartupQuery[] = "startup";
  inline constexpr char kChromeUIProfilePickerGlicQuery[] = "glic";
  inline constexpr char kChromeUIProfilePickerUrl[] = "chrome://profile-picker/";
@@ -13,7 +13,7 @@
  inline constexpr char kChromeUIHistorySyncOptinHost[] = "history-sync-optin";
 --- a/chrome/common/webui_url_constants.cc
 +++ b/chrome/common/webui_url_constants.cc
-@@ -168,6 +168,8 @@ @@ base::span<const base::cstring_view> Chr
+@@ -168,6 +168,8 @@ base::span<const base::cstring_view> Chr
        kChromeUIPrefsInternalsHost,
        kChromeUIProfileInternalsHost,
        content::kChromeUIQuotaInternalsHost,
@@ -24,7 +24,7 @@
        kChromeUIWebUIToolbarHost,
 --- a/chrome/browser/ui/webui/chrome_web_ui_configs.cc
 +++ b/chrome/browser/ui/webui/chrome_web_ui_configs.cc
-@@ -44,6 +44,8 @@ @@
+@@ -44,6 +44,8 @@
  #include "chrome/browser/ui/webui/net_internals/net_internals_ui.h"
  #include "chrome/browser/ui/webui/ntp_tiles_internals_ui.h"
  #include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
@@ -33,7 +33,7 @@
  #include "chrome/browser/ui/webui/onboarding/onboarding_page_ui.h"
  #include "chrome/browser/ui/webui/policy/policy_ui.h"
  #include "chrome/browser/ui/webui/predictors/predictors_ui.h"
-@@ -448,6 +450,8 @@ @@ void RegisterChromeWebUIConfigs() {
+@@ -448,6 +450,8 @@ void RegisterChromeWebUIConfigs() {
    map.AddWebUIConfig(std::make_unique<DefaultBrowserModalUIConfig>());
    map.AddWebUIConfig(std::make_unique<ManagedUserProfileNoticeUIConfig>());
    map.AddWebUIConfig(std::make_unique<IntroUIConfig>());
@@ -44,7 +44,7 @@
    map.AddWebUIConfig(std::make_unique<ProfilePickerUIConfig>());
 --- a/chrome/browser/ui/BUILD.gn
 +++ b/chrome/browser/ui/BUILD.gn
-@@ -162,6 +162,14 @@ @@ static_library("ui") {
+@@ -162,6 +162,14 @@ static_library("ui") {
      "webui/net_internals/net_internals_ui.h",
      "webui/ntp_tiles_internals_ui.cc",
      "webui/ntp_tiles_internals_ui.h",
@@ -61,7 +61,7 @@
      "webui/omnibox/omnibox_ui.cc",
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/godseye_page_ui.h
-@@ -0,0 +1,30 @@ @@
+@@ -0,0 +1,30 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -94,7 +94,7 @@
 +#endif  // CHROME_BROWSER_UI_WEBUI_GODSEYE_GODSEYE_PAGE_UI_H_
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/godseye_page_ui.cc
-@@ -0,0 +1,34 @@ @@
+@@ -0,0 +1,34 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -131,7 +131,7 @@
 +HeliumGodsEyePageUI::~HeliumGodsEyePageUI() = default;
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/godseye_handler.h
-@@ -0,0 +1,53 @@ @@
+@@ -0,0 +1,53 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -187,7 +187,7 @@
 +#endif  // CHROME_BROWSER_UI_WEBUI_GODSEYE_GODSEYE_HANDLER_H_
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/godseye_handler.cc
-@@ -0,0 +1,132 @@ @@
+@@ -0,0 +1,132 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -322,7 +322,7 @@
 +}
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/restricted_page_ui.h
-@@ -0,0 +1,31 @@ @@
+@@ -0,0 +1,31 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -356,7 +356,7 @@
 +#endif  // CHROME_BROWSER_UI_WEBUI_GODSEYE_RESTRICTED_PAGE_UI_H_
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/restricted_page_ui.cc
-@@ -0,0 +1,31 @@ @@
+@@ -0,0 +1,31 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -390,7 +390,7 @@
 +HeliumRestrictedPageUI::~HeliumRestrictedPageUI() = default;
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/restricted_handler.h
-@@ -0,0 +1,30 @@ @@
+@@ -0,0 +1,30 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -423,7 +423,7 @@
 +#endif  // CHROME_BROWSER_UI_WEBUI_GODSEYE_RESTRICTED_HANDLER_H_
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/restricted_handler.cc
-@@ -0,0 +1,45 @@ @@
+@@ -0,0 +1,45 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -471,7 +471,7 @@
 +}
 --- a/chrome/browser/resources/BUILD.gn
 +++ b/chrome/browser/resources/BUILD.gn
-@@ -36,6 +36,8 @@ @@ group("resources") {
+@@ -36,6 +36,8 @@ group("resources") {
      "//chrome/browser/resources/discards:resources",
      "//chrome/browser/resources/downloads:resources",
      "//chrome/browser/resources/extensions:resources",
@@ -482,7 +482,7 @@
      "//chrome/browser/resources/identity_internals:resources",
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/BUILD.gn
-@@ -0,0 +1,25 @@ @@
+@@ -0,0 +1,25 @@
 +# Copyright 2025 The Helium Authors
 +# You can use, redistribute, and/or modify this source code under
 +# the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -510,7 +510,7 @@
 +}
 --- /dev/null
 +++ b/chrome/browser/resources/restricted_page/BUILD.gn
-@@ -0,0 +1,21 @@ @@
+@@ -0,0 +1,21 @@
 +# Copyright 2025 The Helium Authors
 +# You can use, redistribute, and/or modify this source code under
 +# the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -534,7 +534,7 @@
 +}
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/godseye.html
-@@ -0,0 +1,15 @@ @@
+@@ -0,0 +1,15 @@
 +<!DOCTYPE html>
 +<html lang="en">
 +<head>
@@ -552,7 +552,7 @@
 +</html>
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/godseye.css
-@@ -0,0 +1,237 @@ @@
+@@ -0,0 +1,237 @@
 +/* Copyright 2025 The Helium Authors */
 +/* God's Eye — Full-page WebUI styles */
 +
@@ -792,7 +792,7 @@
 +.empty-hint { color: #555; font-size: 13px; font-style: italic; }
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/godseye.ts
-@@ -0,0 +1,355 @@ @@
+@@ -0,0 +1,355 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -1150,7 +1150,7 @@
 +customElements.define('helium-godseye-app', HeliumGodsEyeApp);
 --- /dev/null
 +++ b/chrome/browser/resources/restricted_page/restricted_page.html
-@@ -0,0 +1,15 @@ @@
+@@ -0,0 +1,15 @@
 +<!DOCTYPE html>
 +<html lang="en">
 +<head>
@@ -1168,7 +1168,7 @@
 +</html>
 --- /dev/null
 +++ b/chrome/browser/resources/restricted_page/restricted_page.css
-@@ -0,0 +1,137 @@ @@
+@@ -0,0 +1,137 @@
 +/* Copyright 2025 The Helium Authors */
 +/* God's Eye — Restricted Page */
 +
@@ -1308,7 +1308,7 @@
 +.open-godseye:hover { color: #ccc; border-color: #444; }
 --- /dev/null
 +++ b/chrome/browser/resources/restricted_page/restricted_page.js
-@@ -0,0 +1,130 @@ @@
+@@ -0,0 +1,130 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
