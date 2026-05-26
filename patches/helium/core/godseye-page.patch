@@ -481,7 +481,7 @@
        "inspect:resources",
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/BUILD.gn
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,19 @@
 +# Copyright 2025 The Helium Authors
 +# You can use, redistribute, and/or modify this source code under
 +# the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -490,18 +490,12 @@
 +
 +build_webui("build") {
 +  grd_prefix = "godseye"
-+  web_component_files = [
-+    "godseye.ts",
-+  ]
-+  non_web_component_files = [
++  ts_files = [ "godseye.ts" ]
++  static_files = [
 +    "godseye.html",
 +    "godseye.css",
 +  ]
-+  ts_deps = [
-+    "//third_party/polymer/v3_0:library",
-+    "//ui/webui/resources/js:build_ts",
-+    "//ui/webui/resources/cr_elements:build_ts",
-+  ]
++  ts_deps = [ "//ui/webui/resources/js:build_ts" ]
 +}
 +
 +group("resources") {
@@ -509,7 +503,7 @@
 +}
 --- /dev/null
 +++ b/chrome/browser/resources/restricted_page/BUILD.gn
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,19 @@
 +# Copyright 2025 The Helium Authors
 +# You can use, redistribute, and/or modify this source code under
 +# the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -518,14 +512,12 @@
 +
 +build_webui("build") {
 +  grd_prefix = "restricted_page"
-+  non_web_component_files = [
++  ts_files = [ "restricted_page.ts" ]
++  static_files = [
 +    "restricted_page.html",
 +    "restricted_page.css",
-+    "restricted_page.js",
 +  ]
-+  ts_deps = [
-+    "//ui/webui/resources/js:build_ts",
-+  ]
++  ts_deps = [ "//ui/webui/resources/js:build_ts" ]
 +}
 +
 +group("resources") {
@@ -791,10 +783,11 @@
 +.empty-hint { color: #555; font-size: 13px; font-style: italic; }
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/godseye.ts
-@@ -0,0 +1,355 @@
+@@ -0,0 +1,356 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++// @ts-nocheck
 +
 +import {sendWithPromise} from 'chrome://resources/js/cr.js';
 +
@@ -1306,11 +1299,12 @@
 +
 +.open-godseye:hover { color: #ccc; border-color: #444; }
 --- /dev/null
-+++ b/chrome/browser/resources/restricted_page/restricted_page.js
-@@ -0,0 +1,130 @@
++++ b/chrome/browser/resources/restricted_page/restricted_page.ts
+@@ -0,0 +1,131 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
++// @ts-nocheck
 +
 +'use strict';
 +
