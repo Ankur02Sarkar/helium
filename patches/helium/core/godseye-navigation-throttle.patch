@@ -218,14 +218,15 @@
  #include "chrome/browser/lookalikes/lookalike_url_navigation_throttle.h"
  #include "chrome/browser/plugins/pdf_iframe_navigation_throttle.h"
  #include "chrome/browser/policy/chrome_policy_blocklist_service_factory.h"
-@@ -418,6 +419,10 @@ void CreateAndAddChromeThrottlesForNavigation(
+@@ -422,7 +422,11 @@ void CreateAndAddChromeThrottlesForNavigation(
        SafeSearchFactory::GetForBrowserContext(context)));
  
    // Before setting up SSL error detection, configure SSLErrorHandler to invoke
+   // the relevant extension API whenever an SSL interstitial is shown.
 +
 +  // God's Eye URL/keyword navigation throttle
 +  GodsEyeNavigationThrottle::MaybeCreateAndAdd(registry);
 +
-   // the relevant extension API whenever an SSL interstitial is shown.
    SSLErrorHandler::SetClientCallbackOnInterstitialsShown(
-       handle->IsInPrerenderedMainFrame() ||
+       base::BindRepeating(&MaybeTriggerSecurityInterstitialShownEvent));
+   registry.AddThrottle(std::make_unique<SSLErrorNavigationThrottle>(
