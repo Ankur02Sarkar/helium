@@ -1,18 +1,18 @@
 --- a/chrome/browser/BUILD.gn
 +++ b/chrome/browser/BUILD.gn
-@@ -1238,7 +1238,9 @@ static_library("browser") {
+@@ -401,7 +401,9 @@ static_library("browser") {
      "godseye/godseye_config.cc",
      "godseye/godseye_config.h",
      "godseye/godseye_tab_helper.cc",
      "godseye/godseye_tab_helper.h",
 +    "godseye/godseye_navigation_throttle.cc",
 +    "godseye/godseye_navigation_throttle.h",
-     "google/google_brand.cc",
-     "google/google_brand.h",
+     "global_features.cc",
+     "history/chrome_history_backend_client.cc",
      "google/google_brand_code_map_chromeos.h",
 --- /dev/null
 +++ b/chrome/browser/godseye/godseye_navigation_throttle.h
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,51 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -24,9 +24,11 @@
 +#include <string>
 +
 +#include "content/public/browser/navigation_throttle.h"
++#include "content/public/browser/navigation_throttle_registry.h"
 +
 +namespace content {
 +class NavigationHandle;
++class NavigationThrottleRegistry;
 +}
 +
 +// Intercepts navigations and blocks URLs that match the God's Eye blocked list.
@@ -45,10 +47,9 @@
 +  ThrottleCheckResult WillRedirectRequest() override;
 +  const char* GetNameForLogging() override;
 +
-+  // Factory: creates a throttle for the given handle if God's Eye is active.
-+  // Returns nullptr if God's Eye is disabled or the profile is unavailable.
-+  static std::unique_ptr<GodsEyeNavigationThrottle> MaybeCreate(
-+      content::NavigationHandle* handle);
++  // Registers a throttle if God's Eye is active. No-op otherwise.
++  static void MaybeCreateAndAdd(
++      content::NavigationThrottleRegistry& registry);
 +
 + private:
 +  // Core check logic. Returns a redirect ThrottleCheckResult if the URL is
@@ -65,7 +66,7 @@
 +#endif  // CHROME_BROWSER_GODSEYE_GODSEYE_NAVIGATION_THROTTLE_H_
 --- /dev/null
 +++ b/chrome/browser/godseye/godseye_navigation_throttle.cc
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,141 @@
 +// Copyright 2025 The Helium Authors
 +// You can use, redistribute, and/or modify this source code under
 +// the terms of the GPL-3.0 license that can be found in the LICENSE file.
@@ -87,8 +88,8 @@
 +#include "url/gurl.h"
 +
 +GodsEyeNavigationThrottle::GodsEyeNavigationThrottle(
-+    content::NavigationHandle* navigation_handle)
-+    : content::NavigationThrottle(navigation_handle) {}
++    content::NavigationThrottleRegistry& registry)
++    : content::NavigationThrottle(registry) {}
 +
 +GodsEyeNavigationThrottle::~GodsEyeNavigationThrottle() = default;
 +
@@ -97,21 +98,22 @@
 +}
 +
 +// static
-+std::unique_ptr<GodsEyeNavigationThrottle>
-+GodsEyeNavigationThrottle::MaybeCreate(content::NavigationHandle* handle) {
-+  if (!handle->IsInMainFrame()) return nullptr;
++void GodsEyeNavigationThrottle::MaybeCreateAndAdd(
++    content::NavigationThrottleRegistry& registry) {
++  content::NavigationHandle& handle = registry.GetNavigationHandle();
++  if (!handle.IsInMainFrame()) return;
 +
-+  content::WebContents* wc = handle->GetWebContents();
-+  if (!wc) return nullptr;
++  content::WebContents* wc = handle.GetWebContents();
++  if (!wc) return;
 +
 +  Profile* profile =
 +      Profile::FromBrowserContext(wc->GetBrowserContext());
-+  if (!profile || profile->IsOffTheRecord()) return nullptr;
++  if (!profile || profile->IsOffTheRecord()) return;
 +
 +  godseye::GodsEyeConfig config(profile->GetPrefs(), profile->GetPath());
-+  if (!config.IsEnabled()) return nullptr;
++  if (!config.IsEnabled()) return;
 +
-+  return std::make_unique<GodsEyeNavigationThrottle>(handle);
++  registry.AddThrottle(std::make_unique<GodsEyeNavigationThrottle>(registry));
 +}
 +
 +// static
@@ -140,7 +142,7 @@
 +    return PROCEED;
 +  }
 +
-+  content::WebContents* wc = navigation_handle()->GetWebContents();
++  content::WebContents* wc = navigation_handle().GetWebContents();
 +  if (!wc) return PROCEED;
 +
 +  Profile* profile =
@@ -199,32 +201,31 @@
 +
 +content::NavigationThrottle::ThrottleCheckResult
 +GodsEyeNavigationThrottle::WillStartRequest() {
-+  return CheckUrl(navigation_handle()->GetURL());
++  return CheckUrl(navigation_handle().GetURL());
 +}
 +
 +content::NavigationThrottle::ThrottleCheckResult
 +GodsEyeNavigationThrottle::WillRedirectRequest() {
-+  return CheckUrl(navigation_handle()->GetURL());
++  return CheckUrl(navigation_handle().GetURL());
 +}
---- a/chrome/browser/chrome_content_browser_client.cc
-+++ b/chrome/browser/chrome_content_browser_client.cc
-@@ -210,6 +210,7 @@ limitations under the License.
- #include "chrome/browser/file_system_access/file_system_access_permission_context_factory.h"
- #include "chrome/browser/font_prewarming_tab_helper.h"
- #include "chrome/browser/gcm/gcm_product_util.h"
+--- a/chrome/browser/chrome_content_browser_client_navigation_throttles.cc
++++ b/chrome/browser/chrome_content_browser_client_navigation_throttles.cc
+@@ -19,6 +19,7 @@
+ #include "chrome/browser/glic/glic_navigation_throttle.h"
+ #include "chrome/browser/history/history_service_factory.h"
+ #include "chrome/browser/interstitials/enterprise_util.h"
 +#include "chrome/browser/godseye/godseye_navigation_throttle.h"
- #include "chrome/browser/gpu/chrome_browser_main_extra_parts_gpu.h"
- #include "chrome/browser/headless/headless_mode_util.h"
- #include "chrome/browser/history/history_utils.h"
-@@ -5125,6 +5126,11 @@ ChromeContentBrowserClient::CreateThrottlesForNavigation(
-   throttles.push_back(
-       std::make_unique<PolicyBlocklistNavigationThrottle>(handle, context));
+ #include "chrome/browser/lookalikes/lookalike_url_navigation_throttle.h"
+ #include "chrome/browser/plugins/pdf_iframe_navigation_throttle.h"
+ #include "chrome/browser/policy/chrome_policy_blocklist_service_factory.h"
+@@ -418,6 +419,10 @@ void CreateAndAddChromeThrottlesForNavigation(
+       SafeSearchFactory::GetForBrowserContext(context)));
  
-+  // God's Eye URL/keyword navigation throttle
-+  if (auto ge_throttle = GodsEyeNavigationThrottle::MaybeCreate(handle)) {
-+    throttles.push_back(std::move(ge_throttle));
-+  }
+   // Before setting up SSL error detection, configure SSLErrorHandler to invoke
 +
-   // Before adding throttles, check the context type.
-   if (handle->IsInMainFrame() ||
++  // God's Eye URL/keyword navigation throttle
++  GodsEyeNavigationThrottle::MaybeCreateAndAdd(registry);
++
+   // the relevant extension API whenever an SSL interstitial is shown.
+   SSLErrorHandler::SetClientCallbackOnInterstitialsShown(
        handle->IsInPrerenderedMainFrame() ||
