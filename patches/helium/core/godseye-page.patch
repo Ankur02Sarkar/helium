@@ -56,9 +56,9 @@
 +    "webui/godseye/restricted_handler.h",
 +    "webui/godseye/restricted_page_ui.cc",
 +    "webui/godseye/restricted_page_ui.h",
-     "webui/omnibox/omnibox_page_handler.cc",
-     "webui/omnibox/omnibox_page_handler.h",
-     "webui/omnibox/omnibox_ui.cc",
+     "webui/onboarding/onboarding_handler.cc",
+     "webui/onboarding/onboarding_handler.h",
+     "webui/onboarding/onboarding_page_ui.cc",
 --- /dev/null
 +++ b/chrome/browser/ui/webui/godseye/godseye_page_ui.h
 @@ -0,0 +1,30 @@
@@ -471,15 +471,14 @@
 +}
 --- a/chrome/browser/resources/BUILD.gn
 +++ b/chrome/browser/resources/BUILD.gn
-@@ -36,6 +36,8 @@ group("resources") {
-     "//chrome/browser/resources/discards:resources",
-     "//chrome/browser/resources/downloads:resources",
-     "//chrome/browser/resources/extensions:resources",
-+    "//chrome/browser/resources/godseye:resources",
-+    "//chrome/browser/resources/restricted_page:resources",
-     "//chrome/browser/resources/feedback:resources",
-     "//chrome/browser/resources/history:resources",
-     "//chrome/browser/resources/identity_internals:resources",
+@@ -49,5 +49,7 @@ group("resources") {
+       "feedback:resources",
+       "gaia_auth_host:resources",
++      "godseye:resources",
++      "restricted_page:resources",
+       "glic/selection_overlay:resources",
+       "history:resources",
+       "inspect:resources",
 --- /dev/null
 +++ b/chrome/browser/resources/godseye/BUILD.gn
 @@ -0,0 +1,25 @@
