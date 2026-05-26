@@ -1,6 +1,6 @@
 --- a/chrome/browser/BUILD.gn
 +++ b/chrome/browser/BUILD.gn
-@@ -401,7 +401,9 @@ static_library("browser") {
+@@ -402,7 +402,9 @@ static_library("browser") {
      "godseye/godseye_config.cc",
      "godseye/godseye_config.h",
      "godseye/godseye_tab_helper.cc",

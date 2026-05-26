@@ -108,9 +108,6 @@ helium/core/services-prefs.patch
 helium/core/services-schema-nag.patch
 helium/core/override-chrome-protocol.patch
 helium/core/onboarding-page.patch
-helium/core/godseye-prefs.patch
-helium/core/godseye-page.patch
-helium/core/godseye-navigation-throttle.patch
 helium/core/change-chromium-branding.patch
 helium/core/scan-chrome-native-messaging-hosts.patch
 
@@ -152,6 +149,9 @@ helium/core/flags-setup.patch
 helium/core/add-low-power-framerate-flag.patch
 helium/core/add-update-channel-flag.patch
 helium/core/add-updater-preference.patch
+helium/core/godseye-prefs.patch
+helium/core/godseye-page.patch
+helium/core/godseye-navigation-throttle.patch
 helium/core/add-disable-ech-flag.patch
 helium/core/exclude-irrelevant-flags.patch
 
