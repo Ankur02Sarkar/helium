@@ -149,9 +149,6 @@ helium/core/flags-setup.patch
 helium/core/add-low-power-framerate-flag.patch
 helium/core/add-update-channel-flag.patch
 helium/core/add-updater-preference.patch
-helium/core/godseye-prefs.patch
-helium/core/godseye-page.patch
-helium/core/godseye-navigation-throttle.patch
 helium/core/add-disable-ech-flag.patch
 helium/core/exclude-irrelevant-flags.patch
 
@@ -163,6 +160,9 @@ helium/core/ublock-setup-sources.patch
 helium/core/ublock-install-as-component.patch
 helium/core/ublock-reconfigure-defaults.patch
 helium/core/ublock-helium-services.patch
+helium/core/godseye-prefs.patch
+helium/core/godseye-page.patch
+helium/core/godseye-navigation-throttle.patch
 helium/core/clean-omnibox-suggestions.patch
 helium/core/increase-incognito-storage-quota.patch
 

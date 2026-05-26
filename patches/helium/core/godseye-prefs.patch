@@ -1,9 +1,10 @@
 --- a/components/helium_services/pref_names.h
 +++ b/components/helium_services/pref_names.h
-@@ -37,6 +37,19 @@ inline constexpr char kHeliumUpdateFetchingEnabled[] =
- inline constexpr char kHeliumSpellcheckEnabled[] =
-     "helium.services.spellcheck_files";
+@@ -41,6 +41,19 @@ inline constexpr char kHeliumSpellcheckEnabled[] =
  
+ inline constexpr char kHeliumUBlockAssetsEnabled[] =
+     "helium.services.ublock_assets";
++
 +inline constexpr char kHeliumGodsEyeEnabled[] =
 +    "helium.godseye.enabled";
 +
@@ -16,17 +17,16 @@
 +// Stored as int64 (seconds since Unix epoch, UTC) via SetDouble/GetDouble
 +inline constexpr char kHeliumGodsEyeExpirySeconds[] =
 +    "helium.godseye.expiry_utc_seconds";
-+
  }  // namespace prefs
  
  #endif  // COMPONENTS_HELIUM_SERVICES_PREF_NAMES_H_
 
 --- a/chrome/browser/ui/browser_ui_prefs.cc
 +++ b/chrome/browser/ui/browser_ui_prefs.cc
-@@ -230,6 +230,11 @@ void RegisterBrowserUserPrefs(user_prefs
-     registry->RegisterBooleanPref(prefs::kHeliumDidOnboarding, false);
+@@ -231,6 +231,11 @@ void RegisterBrowserUserPrefs(user_prefs
      registry->RegisterBooleanPref(prefs::kHeliumServicesConsented, false);
      registry->RegisterBooleanPref(prefs::kHeliumUpdateFetchingEnabled, true);
+     registry->RegisterBooleanPref(prefs::kHeliumUBlockAssetsEnabled, true);
 +    registry->RegisterBooleanPref(prefs::kHeliumGodsEyeEnabled, false);
 +    registry->RegisterListPref(prefs::kHeliumGodsEyeBlockedUrls);
 +    registry->RegisterListPref(prefs::kHeliumGodsEyeBlockedKeywords);
